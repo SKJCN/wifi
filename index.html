@@ -1,0 +1,1925 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SKJCN - ACT customers list</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#F5F2EA;
+    --surface:#FFFFFF;
+    --ink:#2A2825;
+    --muted:#8C8579;
+    --border:#E4DECF;
+    --primary:#1E4A45;
+    --primary-light:#2F6B63;
+    --accent:#E08E2C;
+    --accent-soft:#FBEBD4;
+    --accent-ink:#9A5B14;
+    --success:#4A7C59;
+    --success-soft:#E4EFE6;
+    --danger:#C1543A;
+    --danger-soft:#F6E1DA;
+    --radius:10px;
+    --font-display:'Fraunces',serif;
+    --font-body:'IBM Plex Sans',sans-serif;
+    --font-mono:'IBM Plex Mono',monospace;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    padding:24px;
+    font-family:var(--font-body);
+    background:var(--bg);
+    color:var(--ink);
+    -webkit-font-smoothing:antialiased;
+  }
+  .app{max-width:1240px;margin:0 auto;display:flex;flex-direction:column;gap:20px;}
+
+  /* ── Collapsible top section (header + dashboard + toolbar) ──
+     Used for "village focus mode": collapses away when a specific
+     village is selected so the cards take over the screen. */
+  .collapsible-top{
+    display:grid;
+    grid-template-rows:1fr;
+    transition:grid-template-rows .38s cubic-bezier(.4,0,.2,1), opacity .28s ease, margin-bottom .38s ease;
+    opacity:1;
+    margin-bottom:0;
+  }
+  .collapsible-top.collapsed{
+    grid-template-rows:0fr;
+    opacity:0;
+    margin-bottom:-20px; /* cancel out the .app flex gap so cards snap up flush */
+    pointer-events:none;
+  }
+  .collapsible-inner{
+    overflow:hidden;
+    min-height:0;
+    display:flex;flex-direction:column;gap:20px;
+  }
+
+  /* Topbar */
+  .topbar{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:14px;}
+  .brand{display:flex;align-items:center;gap:14px;}
+  .brand img{flex-shrink:0;object-fit:contain;border-radius:6px;}
+  .brand h1{font-family:var(--font-display);font-size:28px;font-weight:600;margin:0;color:var(--primary);letter-spacing:-0.5px;}
+  .brand p{margin:2px 0 0;font-size:13px;color:var(--muted);}
+  .topbar-actions{display:flex;gap:10px;align-items:center;flex-wrap:wrap;}
+  .sync-pill{font-size:12px;padding:6px 12px;border-radius:99px;background:var(--surface);border:1px solid var(--border);color:var(--muted);font-family:var(--font-mono);}
+  .sync-pill.connected{color:var(--success);border-color:var(--success);background:var(--success-soft);}
+  .sync-pill.dirty{color:var(--accent-ink);border-color:var(--accent);background:var(--accent-soft);}
+
+  /* Dashboard section collapse */
+  .stats-grid{
+    display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;
+    overflow:hidden;
+    max-height:500px;
+    opacity:1;
+    transform:translateY(0);
+    margin-top:0;
+    transition:max-height .35s cubic-bezier(.4,0,.2,1),
+               opacity .3s ease,
+               transform .35s cubic-bezier(.4,0,.2,1),
+               margin-top .35s cubic-bezier(.4,0,.2,1);
+  }
+  .stats-grid.hidden{
+    max-height:0;
+    opacity:0;
+    transform:translateY(-8px);
+    margin-top:-20px;
+    gap:0;
+    pointer-events:none;
+  }
+  .stat-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:14px 18px;}
+  .stat-value{display:block;font-family:var(--font-display);font-size:30px;font-weight:600;color:var(--primary);line-height:1.1;}
+  .stat-label{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.07em;margin-top:4px;display:block;}
+
+  /* Toolbar */
+  .toolbar{display:flex;gap:10px;flex-wrap:wrap;align-items:center;background:var(--surface);padding:12px;border-radius:var(--radius);border:1px solid var(--border);}
+  /* Language toggle pill (dark/light mode style) */
+  .lang-toggle{
+    display:inline-flex;align-items:center;
+    background:var(--bg);border:1px solid var(--border);
+    border-radius:99px;padding:3px;gap:2px;
+    flex-shrink:0;
+  }
+  .lang-option{
+    font-family:var(--font-body);font-size:13px;font-weight:500;
+    padding:6px 14px;border-radius:99px;border:none;
+    cursor:pointer;transition:all .2s;line-height:1.2;
+    background:transparent;color:var(--muted);
+  }
+  .lang-option.lang-active{
+    background:var(--primary);color:#fff;
+    box-shadow:0 1px 4px rgba(30,74,69,.25);
+    cursor:default;
+  }
+  .lang-option:not(.lang-active):hover{
+    background:var(--border);color:var(--ink);
+  }
+  .field{padding:9px 12px;border:1px solid var(--border);border-radius:7px;font-family:var(--font-body);font-size:14px;background:var(--bg);color:var(--ink);}
+  .toolbar input[type=search]{flex:1 1 180px;}
+  .toolbar select{flex:0 1 150px;}
+  .spacer{flex:1;}
+
+  /* Buttons */
+  .btn{font-family:var(--font-body);font-size:14px;padding:9px 18px;border-radius:7px;border:1px solid transparent;cursor:pointer;font-weight:500;transition:all .15s;}
+  .btn-primary{background:var(--primary);color:#fff;}
+  .btn-primary:hover{background:var(--primary-light);}
+  .btn-secondary{background:var(--accent-soft);color:var(--accent-ink);border-color:var(--accent);}
+  .btn-secondary:hover{background:#f7dcb3;}
+  .btn-ghost{background:transparent;color:var(--muted);border-color:var(--border);}
+  .btn-ghost:hover{background:var(--bg);color:var(--ink);}
+  .icon-btn{background:none;border:none;cursor:pointer;font-size:16px;padding:4px 6px;border-radius:5px;color:var(--muted);}
+  .icon-btn:hover{background:var(--bg);color:var(--ink);}
+
+  /* Signal status */
+  .signal{display:inline-flex;align-items:flex-end;gap:2px;height:14px;}
+  .signal span{width:3px;border-radius:1px;background:var(--border);display:block;}
+  .signal span:nth-child(1){height:35%;}
+  .signal span:nth-child(2){height:58%;}
+  .signal span:nth-child(3){height:80%;}
+  .signal span:nth-child(4){height:100%;}
+  .signal.active span{background:var(--success);}
+  .signal.inactive span:nth-child(1){background:var(--danger);}
+
+  /* Card grid */
+  .cards-wrap{display:flex;flex-direction:column;gap:0;}
+  .cards-grid{
+    display:flex;
+    flex-wrap:wrap;
+    align-items:flex-start;
+    gap:14px;
+    padding:0;
+  }
+
+  /* Each card is 100% on mobile/tablet, ~50% on laptop */
+  .customer-card{
+    background:var(--surface);
+    border:1px solid var(--border);
+    border-radius:var(--radius);
+    overflow:hidden;
+    flex: 1 1 100%;
+  }
+  @media(min-width:1024px){
+    .customer-card{ flex: 1 1 calc(50% - 7px); max-width:calc(50% - 7px); }
+  }
+
+  /* Card face — always visible */
+  .card-face{
+    display:flex;
+    align-items:center;
+    gap:14px;
+    padding:14px 16px;
+    cursor:pointer;
+    user-select:none;
+    position:relative;
+  }
+  .card-face:hover{ background:var(--bg); }
+
+  .card-avatar-wrap{
+    position:relative;flex-shrink:0;
+    width:54px;height:54px;
+    display:flex;align-items:center;justify-content:center;
+    border-radius:50%;
+    padding:3px;
+  }
+  .card-avatar-wrap.active{ box-shadow:0 0 0 2.5px var(--success); }
+  .card-avatar-wrap.inactive{ box-shadow:0 0 0 2.5px var(--danger); }
+  .card-avatar{
+    width:48px;height:48px;border-radius:50%;
+    display:flex;align-items:center;justify-content:center;
+    font-family:var(--font-mono);font-size:11px;font-weight:600;
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+    padding:0 4px;
+  }
+  .card-main{ flex:1; min-width:0; }
+  .card-name{
+    font-size:15px;font-weight:600;color:var(--ink);
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+  }
+  .card-id{
+    font-family:var(--font-mono);font-size:11.5px;color:var(--muted);margin-top:1px;
+  }
+  .card-price{
+    font-family:var(--font-body);font-size:14px;font-weight:500;
+    color:#2A2825;white-space:nowrap;flex-shrink:0;
+    text-transform:uppercase;letter-spacing:.12em;
+  }
+  /* View Details button on card */
+  .card-view-btn{
+    flex-shrink:0;margin-left:6px;
+    font-family:var(--font-body);font-size:12px;font-weight:500;
+    padding:6px 12px;border-radius:7px;border:1px solid var(--border);
+    background:var(--bg);color:var(--muted);cursor:pointer;
+    transition:background .15s, color .15s, border-color .15s;
+    white-space:nowrap;
+  }
+  .card-view-btn:hover{
+    background:var(--primary);color:#fff;border-color:var(--primary);
+  }
+  /* Status dot on card face */
+  .card-status-dot{
+    width:8px;height:8px;border-radius:50%;flex-shrink:0;
+    background:var(--border);
+  }
+  .card-status-dot.active{ background:var(--success); }
+  .card-status-dot.inactive{ background:var(--danger); }
+
+
+
+
+  .phone-copy{
+    display:inline-flex;align-items:center;gap:6px;
+    cursor:pointer;position:relative;
+    border-radius:5px;padding:2px 6px;margin:-2px -6px;
+    transition:background .15s;
+  }
+  .phone-copy:hover{ background:var(--bg); }
+  .copy-icon{
+    opacity:0;transition:opacity .15s;
+    display:flex;align-items:center;
+  }
+  .phone-copy:hover .copy-icon{ opacity:1; }
+
+  /* Clickable phone number → dial */
+  .phone-link{
+    color:var(--primary);text-decoration:none;font-family:var(--font-mono);font-size:12.5px;
+    display:inline-flex;align-items:center;gap:4px;
+    border-radius:5px;padding:2px 6px;margin:-2px -6px;
+    transition:background .15s, color .15s;
+  }
+  .phone-link:hover{background:var(--success-soft);color:var(--success);}
+  .copy-toast{
+    position:fixed;bottom:24px;left:50%;transform:translateX(-50%);
+    background:var(--ink);color:#fff;font-size:13px;font-family:var(--font-body);
+    padding:8px 16px;border-radius:99px;pointer-events:none;
+    opacity:0;transition:opacity .2s;z-index:999;white-space:nowrap;
+  }
+  .copy-toast.show{ opacity:1; }
+
+  .empty-state{padding:48px 20px;text-align:center;color:var(--muted);font-size:14px;}
+  .hidden{display:none !important;}
+
+  /* Modals */
+  .modal-overlay{position:fixed;inset:0;background:rgba(40,35,28,.45);display:flex;align-items:center;justify-content:center;padding:20px;z-index:50;}
+  .modal{background:var(--surface);border-radius:var(--radius);padding:26px;max-width:580px;width:100%;max-height:88vh;overflow-y:auto;}
+  .modal h2{font-family:var(--font-display);margin:0;color:var(--primary);font-size:22px;font-weight:600;}
+  .hint{font-size:13px;color:var(--muted);margin:8px 0;line-height:1.5;}
+  .form-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:16px 0;}
+  .form-grid label{display:flex;flex-direction:column;gap:5px;font-size:12px;color:var(--muted);font-weight:500;}
+  .form-grid label.full{grid-column:1/-1;}
+  .form-grid input,.form-grid select,.form-grid textarea{font-family:var(--font-body);padding:9px 11px;border:1px solid var(--border);border-radius:7px;font-size:14px;color:var(--ink);background:var(--bg);}
+  .form-grid textarea{resize:vertical;min-height:60px;}
+  .modal-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:6px;flex-wrap:wrap;}
+
+  .pkg-row{display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--border);font-size:14px;gap:10px;}
+  .pkg-row:last-child{border-bottom:none;}
+
+  .gh-log{font-family:var(--font-mono);font-size:12px;background:var(--bg);border:1px solid var(--border);border-radius:7px;padding:10px;min-height:40px;max-height:120px;overflow-y:auto;color:var(--muted);white-space:pre-wrap;margin-top:4px;}
+  .gh-log.error{color:var(--danger);}
+
+  /* Customer details modal */
+  .details-modal{max-width:420px;}
+  .status-badge{display:inline-block;font-size:12px;font-weight:600;padding:3px 10px;border-radius:99px;margin:6px 0 10px;}
+  .status-badge.active{background:var(--success-soft);color:var(--success);}
+  .status-badge.inactive{background:var(--danger-soft);color:var(--danger);}
+  .detail-rows{display:flex;flex-direction:column;margin:6px 0 4px;}
+  .detail-row{display:flex;justify-content:space-between;align-items:center;padding:9px 0;border-bottom:1px solid var(--border);font-size:14px;gap:10px;}
+  .detail-row:last-child{border-bottom:none;}
+  .detail-label{color:var(--muted);font-weight:600;text-transform:uppercase;font-size:11px;letter-spacing:.05em;white-space:nowrap;}
+  .detail-value{color:var(--ink);text-align:right;}
+  .detail-value.mono{font-family:var(--font-mono);font-weight:600;color:var(--primary);}
+  .danger-text{color:var(--danger);border-color:var(--danger-soft);}
+  .danger-text:hover{background:var(--danger-soft);}
+
+  @media (max-width:640px){
+    body{padding:14px;}
+    .form-grid{grid-template-columns:1fr;}
+    .modal{padding:18px;}
+  }
+
+  /* ── Filter icon button ── */
+  .filter-btn{
+    display:inline-flex;align-items:center;gap:7px;
+    padding:9px 14px;border-radius:7px;
+    border:1px solid var(--border);
+    background:var(--surface);color:var(--muted);
+    font-family:var(--font-body);font-size:14px;font-weight:500;
+    cursor:pointer;transition:background .15s,color .15s,border-color .15s;
+    flex-shrink:0;
+  }
+  .filter-btn:hover{ background:var(--bg);color:var(--ink); }
+  .filter-btn.active{ background:var(--primary);color:#fff;border-color:var(--primary); }
+  .filter-btn-badge{
+    min-width:18px;height:18px;padding:0 5px;border-radius:99px;
+    background:var(--accent);color:#fff;
+    font-size:11px;font-weight:700;line-height:18px;text-align:center;
+    display:none;
+  }
+  .filter-btn.active .filter-btn-badge{ background:rgba(255,255,255,0.3); }
+  .filter-btn-badge.show{ display:inline-block; }
+
+  /* ── Drawer overlay ── */
+  .drawer-overlay{
+    position:fixed;inset:0;
+    background:rgba(42,40,37,.4);
+    z-index:60;
+    opacity:0;pointer-events:none;
+    transition:opacity .25s ease;
+  }
+  .drawer-overlay.open{ opacity:1;pointer-events:auto; }
+
+  /* ── Drawer panel ── */
+  .drawer{
+    position:fixed;top:0;right:0;bottom:0;
+    width:300px;
+    background:var(--surface);
+    border-left:1px solid var(--border);
+    box-shadow:-8px 0 32px rgba(42,40,37,.12);
+    z-index:61;
+    display:flex;flex-direction:column;
+    transform:translateX(100%);
+    transition:transform .28s cubic-bezier(.4,0,.2,1);
+  }
+  .drawer.open{ transform:translateX(0); }
+
+  .drawer-header{
+    display:flex;align-items:center;justify-content:space-between;
+    padding:20px 20px 16px;
+    border-bottom:1px solid var(--border);
+    flex-shrink:0;
+  }
+  .drawer-title{
+    font-family:var(--font-display);font-size:18px;font-weight:600;
+    color:var(--primary);letter-spacing:-.3px;margin:0;
+  }
+  .drawer-close{
+    width:32px;height:32px;border-radius:7px;
+    border:1px solid var(--border);background:var(--bg);
+    color:var(--muted);font-size:18px;line-height:1;
+    cursor:pointer;display:flex;align-items:center;justify-content:center;
+    transition:background .15s,color .15s;flex-shrink:0;
+  }
+  .drawer-close:hover{ background:var(--ink);color:#fff;border-color:var(--ink); }
+
+  .drawer-body{
+    flex:1;overflow-y:auto;
+    padding:20px;
+    display:flex;flex-direction:column;gap:18px;
+  }
+
+  .drawer-group{ display:flex;flex-direction:column;gap:6px; }
+  .drawer-label{
+    font-size:11px;font-weight:600;color:var(--muted);
+    text-transform:uppercase;letter-spacing:.08em;
+  }
+  .drawer-input{
+    width:100%;padding:9px 12px;
+    border:1px solid var(--border);border-radius:7px;
+    font-family:var(--font-body);font-size:14px;
+    background:var(--bg);color:var(--ink);
+    transition:border-color .15s,box-shadow .15s;
+  }
+  .drawer-input:focus{
+    outline:none;border-color:var(--primary);
+    box-shadow:0 0 0 3px rgba(30,74,69,.1);
+  }
+
+  .drawer-footer{
+    padding:16px 20px;border-top:1px solid var(--border);
+    display:flex;gap:8px;flex-shrink:0;
+  }
+  .drawer-footer .btn{ flex:1;text-align:center; }
+
+  /* ── Village filter strip ── */
+  .village-filter-strip{
+    display:flex;
+    flex-wrap:wrap;
+    gap:8px;
+    align-items:center;
+    background:var(--surface);
+    border:1px solid var(--border);
+    border-radius:var(--radius);
+    padding:12px 14px;
+    position:sticky;
+    top:0;
+    z-index:40;
+    box-shadow:0 6px 16px rgba(42,40,37,.08);
+  }
+  .village-filter-strip .vf-label{
+    font-size:11px;font-weight:600;color:var(--muted);
+    text-transform:uppercase;letter-spacing:.08em;
+    margin-right:4px;flex-shrink:0;
+    align-self:center;
+  }
+  .vf-btn{
+    display:inline-flex;align-items:center;gap:6px;
+    font-family:var(--font-body);font-size:13px;font-weight:700;
+    padding:8px 18px;
+    border-radius:8px;
+    border:2px solid transparent;
+    cursor:pointer;
+    transition:transform .15s cubic-bezier(.4,0,.2,1),
+               box-shadow .15s cubic-bezier(.4,0,.2,1),
+               outline .1s,
+               opacity .15s;
+    white-space:nowrap;
+    user-select:none;
+    opacity:1;
+    outline:3px solid transparent;
+    outline-offset:2px;
+  }
+  .vf-btn:hover{
+    transform:translateY(-2px);
+    box-shadow:0 6px 18px rgba(0,0,0,.22);
+  }
+  .vf-btn:active{ transform:translateY(0); box-shadow:none; }
+
+  /* Active state — thick glowing outline ring around the button */
+  .vf-btn.vf-active{
+    transform:translateY(-2px) scale(1.04);
+    box-shadow:0 6px 20px rgba(0,0,0,.28);
+    outline:3px solid currentColor;
+    outline-offset:3px;
+    opacity:1;
+  }
+  /* Inactive — slightly faded but fully readable */
+  .vf-btn.vf-inactive{
+    opacity:.6;
+    box-shadow:none;
+    transform:none;
+  }
+  .vf-btn.vf-inactive:hover{
+    opacity:1;
+    transform:translateY(-2px);
+    box-shadow:0 6px 18px rgba(0,0,0,.22);
+  }
+  .vf-count{
+    font-size:11px;font-weight:700;
+    padding:1px 7px;border-radius:99px;
+    background:rgba(0,0,0,.2);
+    letter-spacing:.01em;
+  }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <div class="collapsible-top" id="collapsibleTop">
+  <div class="collapsible-inner">
+
+  <header class="topbar">
+    <div class="brand">
+      <img src="tv.png" width="75" height="75" alt="Sri Kamakshi Jagan Cable Network logo">
+      <div>
+        <h1>Sri Kamakshi Jagan <br>Cable Network</h1>
+        <p><b>ACT</b> Cable connection register</p>
+      </div>
+    </div>
+    <div class="topbar-actions">
+      <div class="lang-toggle" id="langToggle">
+        <button class="lang-option" id="langEnBtn" onclick="setLang('en')" title="Show in English">in English</button>
+        <button class="lang-option lang-active" id="langTeBtn" onclick="setLang('te')" title="తెలుగులో చూపించు">తెలుగు లో</button>
+      </div>
+      <button class="filter-btn" id="dashboardBtn" title="Toggle dashboard">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <rect x="1" y="1" width="6" height="6" rx="1.2" stroke="currentColor" stroke-width="1.6"/>
+          <rect x="9" y="1" width="6" height="6" rx="1.2" stroke="currentColor" stroke-width="1.6"/>
+          <rect x="1" y="9" width="6" height="6" rx="1.2" stroke="currentColor" stroke-width="1.6"/>
+          <rect x="9" y="9" width="6" height="6" rx="1.2" stroke="currentColor" stroke-width="1.6"/>
+        </svg>
+        Dashboard
+      </button>
+      <span class="sync-pill" id="fileSyncStatus">Loading customers.json…</span>
+      <span class="sync-pill" id="syncStatus">Not connected to GitHub</span>
+      <input type="file" id="jsonFileInput" accept="application/json,.json" style="display:none;">
+      <input type="file" id="sankFileInput" accept="application/json,.json" style="display:none;">
+      <input type="file" id="kothFileInput" accept="application/json,.json" style="display:none;">
+    </div>
+  </header>
+
+  <section class="stats-grid hidden" id="dashboardSection">
+    <div class="stat-card"><span class="stat-value" id="statTotal">0</span><span class="stat-label">Total connections</span></div>
+    <div class="stat-card"><span class="stat-value" id="statActive">0</span><span class="stat-label">Active</span></div>
+    <div class="stat-card"><span class="stat-value" id="statInactive">0</span><span class="stat-label">Inactive</span></div>
+    <div class="stat-card"><span class="stat-value" id="statVillages">0</span><span class="stat-label">Villages</span></div>
+    <div class="stat-card"><span class="stat-value" id="statRevenue">₹0</span><span class="stat-label">Monthly revenue (active)</span></div>
+  </section>
+
+  <section class="toolbar">
+    <button class="filter-btn" id="addCustomerBtn">
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <circle cx="6.5" cy="5" r="3" stroke="currentColor" stroke-width="1.6"/>
+        <path d="M1 13c0-2.5 2.5-4 5.5-4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
+        <path d="M12 10v4M10 12h4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
+      </svg>
+      Add customer
+    </button>
+    <button class="filter-btn" id="managePackagesBtn">
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <rect x="1.5" y="1.5" width="5.5" height="5.5" rx="1.2" stroke="currentColor" stroke-width="1.6"/>
+        <rect x="9" y="1.5" width="5.5" height="5.5" rx="1.2" stroke="currentColor" stroke-width="1.6"/>
+        <rect x="1.5" y="9" width="5.5" height="5.5" rx="1.2" stroke="currentColor" stroke-width="1.6"/>
+        <rect x="9" y="9" width="5.5" height="5.5" rx="1.2" stroke="currentColor" stroke-width="1.6"/>
+      </svg>
+      Packages
+    </button>
+    <button class="filter-btn" id="ghDrawerBtn" title="GitHub &amp; file actions">
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
+        <path fill-rule="evenodd" clip-rule="evenodd" d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0 0 16 8c0-4.42-3.58-8-8-8z"/>
+      </svg>
+      GitHub
+    </button>
+    <span class="spacer"></span>
+    <button class="filter-btn" id="filterBtn" title="Search &amp; filter">
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M2 4h12M4.5 8h7M7 12h2" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/>
+      </svg>
+      Filter
+      <span class="filter-btn-badge" id="filterBtnBadge"></span>
+    </button>
+  </section>
+
+  </div>
+  </div>
+
+  <section class="village-filter-strip" id="villageFilterStrip">
+    <span class="vf-label">Village</span>
+    <!-- populated by renderVillageFilter() -->
+  </section>
+
+  <section class="cards-wrap">
+    <div class="cards-grid" id="cardsGrid"></div>
+    <p class="empty-state hidden" id="emptyState">No connections match your filters.</p>
+  </section>
+
+</div>
+
+<!-- Filter drawer -->
+<div class="drawer-overlay" id="drawerOverlay"></div>
+<aside class="drawer" id="filterDrawer">
+  <div class="drawer-header">
+    <h2 class="drawer-title">Filter &amp; Search</h2>
+    <button class="drawer-close" id="drawerClose" title="Close">&#x2715;</button>
+  </div>
+  <div class="drawer-body">
+    <div class="drawer-group">
+      <label class="drawer-label" for="searchInput">Search</label>
+      <input class="drawer-input" type="search" id="searchInput" placeholder="Name, phone or ID…">
+    </div>
+    <div class="drawer-group">
+      <label class="drawer-label" for="villageFilter">Village</label>
+      <select class="drawer-input" id="villageFilter"></select>
+    </div>
+    <div class="drawer-group">
+      <label class="drawer-label" for="packageFilter">Package</label>
+      <select class="drawer-input" id="packageFilter"></select>
+    </div>
+    <div class="drawer-group">
+      <label class="drawer-label" for="statusFilter">Status</label>
+      <select class="drawer-input" id="statusFilter">
+        <option value="">All status</option>
+        <option value="active">Active</option>
+        <option value="inactive">Inactive</option>
+      </select>
+    </div>
+  </div>
+  <div class="drawer-footer">
+    <button class="btn btn-ghost" id="drawerClearBtn">Clear all</button>
+    <button class="btn btn-primary" id="drawerDoneBtn">Done</button>
+  </div>
+</aside>
+
+<!-- Add / Edit customer drawer -->
+<aside class="drawer" id="customerDrawer">
+  <div class="drawer-header">
+    <h2 class="drawer-title" id="customerModalTitle">Add customer</h2>
+    <button class="drawer-close" id="cancelCustomerBtn" title="Close">&#x2715;</button>
+  </div>
+  <div class="drawer-body">
+    <form id="customerForm" style="display:flex;flex-direction:column;gap:14px;">
+      <div class="drawer-group">
+        <label class="drawer-label" for="custName">Name</label>
+        <input class="drawer-input" type="text" id="custName" required>
+      </div>
+      <div class="drawer-group">
+        <label class="drawer-label" for="custPhone">Phone</label>
+        <input class="drawer-input" type="tel" id="custPhone" required pattern="[0-9]{10}" title="10 digit mobile number">
+      </div>
+      <div class="drawer-group">
+        <label class="drawer-label" for="custVillage">Village</label>
+        <select class="drawer-input" id="custVillage" required></select>
+      </div>
+      <div class="drawer-group">
+        <label class="drawer-label" for="custPackage">Package</label>
+        <select class="drawer-input" id="custPackage"></select>
+      </div>
+      <div class="drawer-group">
+        <label class="drawer-label" for="custStatus">Status</label>
+        <select class="drawer-input" id="custStatus">
+          <option value="active">Active</option>
+          <option value="inactive">Inactive</option>
+        </select>
+      </div>
+      <div class="drawer-group">
+        <label class="drawer-label" for="custJoin">Joined</label>
+        <input class="drawer-input" type="date" id="custJoin">
+      </div>
+      <div class="drawer-group">
+        <label class="drawer-label" for="custExpiry">Expires</label>
+        <input class="drawer-input" type="date" id="custExpiry">
+      </div>
+      <div class="drawer-group">
+        <label class="drawer-label" for="custAddress">Address / notes</label>
+        <textarea class="drawer-input" id="custAddress" style="resize:vertical;min-height:70px;"></textarea>
+      </div>
+      <div class="drawer-footer" style="padding:0;border:none;margin-top:4px;">
+        <button type="submit" class="btn btn-primary" style="flex:1">Save customer</button>
+      </div>
+    </form>
+  </div>
+</aside>
+
+<!-- Packages drawer -->
+<aside class="drawer" id="packagesDrawer">
+  <div class="drawer-header">
+    <h2 class="drawer-title">Packages</h2>
+    <button class="drawer-close" id="closePackagesBtn" title="Close">&#x2715;</button>
+  </div>
+  <div class="drawer-body">
+    <p class="hint" style="margin:0">Package changes apply to every customer assigned to that package.</p>
+    <div id="packagesList"></div>
+    <div style="border-top:1px solid var(--border);padding-top:16px;display:flex;flex-direction:column;gap:12px;">
+      <div class="drawer-group">
+        <label class="drawer-label" for="pkgName">Name</label>
+        <input class="drawer-input" type="text" id="pkgName" placeholder="e.g. Standard">
+      </div>
+      <div class="drawer-group">
+        <label class="drawer-label" for="pkgSpeed">Speed</label>
+        <input class="drawer-input" type="text" id="pkgSpeed" placeholder="e.g. 50 Mbps">
+      </div>
+      <div class="drawer-group">
+        <label class="drawer-label" for="pkgPrice">Price (₹ / month)</label>
+        <input class="drawer-input" type="number" id="pkgPrice" min="0" placeholder="e.g. 599">
+      </div>
+    </div>
+  </div>
+  <div class="drawer-footer">
+    <button type="button" class="btn btn-secondary" id="addPackageBtn" style="flex:1">+ Add package</button>
+  </div>
+</aside>
+
+<aside class="drawer" id="ghDrawer">
+  <div class="drawer-header">
+    <h2 class="drawer-title">GitHub &amp; Files</h2>
+    <button class="drawer-close" id="closeGhDrawerBtn" title="Close">&#x2715;</button>
+  </div>
+  <div class="drawer-body">
+    <p class="hint" style="margin:0">Load a register from your computer, re-check the files on disk, export, or connect to GitHub.</p>
+
+    <div style="display:flex;flex-direction:column;gap:8px;">
+      <label class="drawer-label">Local files</label>
+      <button type="button" class="btn btn-ghost" id="loadJsonBtn" style="text-align:left;width:100%">📂 Load customers.json</button>
+      <button type="button" class="btn btn-ghost" id="loadSankBtn" style="text-align:left;width:100%">📂 Load sank.json</button>
+      <button type="button" class="btn btn-ghost" id="loadKothBtn" style="text-align:left;width:100%">📂 Load koth.json</button>
+      <button type="button" class="btn btn-ghost" id="reloadJsonBtn" style="text-align:left;width:100%">↻ Reload from disk</button>
+    </div>
+
+    <div style="border-top:1px solid var(--border);padding-top:16px;display:flex;flex-direction:column;gap:8px;">
+      <label class="drawer-label">Sync</label>
+      <button type="button" class="btn btn-ghost" id="exportBtn" style="text-align:left;width:100%">⬇ Export JSON</button>
+      <button type="button" class="btn btn-secondary" id="settingsBtn" style="text-align:left;width:100%">⚙ GitHub sync settings</button>
+    </div>
+  </div>
+</aside>
+
+<!-- GitHub settings modal -->
+<div class="modal-overlay hidden" id="settingsModal">
+  <div class="modal">
+    <h2>GitHub sync</h2>
+    <p class="hint">Connect this page to a GitHub repo to load and save the customer register as a JSON file. Use a fine-grained personal access token scoped only to this repo, with "Contents: Read and write" permission.</p>
+    <div class="form-grid">
+      <label>Repo owner
+        <input type="text" id="ghOwner" placeholder="yourusername">
+      </label>
+      <label>Repository
+        <input type="text" id="ghRepo" placeholder="my-customers">
+      </label>
+      <label>Customers file path
+        <input type="text" id="ghPath" value="customers.json">
+      </label>
+      <label>Sankarapuram file path
+        <input type="text" id="ghPathSank" value="sank.json">
+      </label>
+      <label>Kothuru file path
+        <input type="text" id="ghPathKoth" value="koth.json">
+      </label>
+      <label>Branch
+        <input type="text" id="ghBranch" value="main">
+      </label>
+      <label class="full">Personal access token
+        <input type="password" id="ghToken" placeholder="ghp_…">
+      </label>
+    </div>
+    <p class="hint">The token stays in this browser tab's memory only — it is never saved into this file or committed anywhere.</p>
+    <div class="gh-log" id="ghLog">Ready.</div>
+    <div class="modal-actions">
+      <button type="button" class="btn btn-secondary" id="ghLoadBtn">Load from GitHub</button>
+      <button type="button" class="btn btn-primary" id="ghSaveBtn">Save to GitHub</button>
+      <button type="button" class="btn btn-ghost" id="closeSettingsBtn">Close</button>
+    </div>
+  </div>
+</div>
+
+<!-- Customer details modal -->
+<div class="modal-overlay hidden" id="customerDetailsModal">
+  <div class="modal details-modal" style="position:relative;">
+    <button type="button" id="closeDetailsBtn" title="Close" style="
+      position:absolute;top:14px;right:14px;
+      background:var(--primary);border:none;cursor:pointer;
+      font-size:18px;line-height:1;color:#fff;
+      padding:0;border-radius:50%;
+      display:flex;align-items:center;justify-content:center;
+      width:34px;height:34px;
+      transition:background .15s;
+    " onmouseover="this.style.background='var(--primary-light)'"
+       onmouseout="this.style.background='var(--primary)'">&#x2715;</button>
+    <h2 id="detailsName">Customer</h2>
+    <span class="status-badge" id="detailsStatus"></span>
+    <div class="detail-rows" id="detailsRows"></div>
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-top:14px;gap:8px;">
+      <button type="button" class="btn btn-ghost" id="detailsEditBtn">✎ Edit</button>
+      <button type="button" class="btn btn-ghost danger-text" id="detailsDeleteBtn">Strike out</button>
+    </div>
+  </div>
+</div>
+
+<div class="copy-toast" id="copyToast">Copied!</div>
+
+<script>
+/* ---------------------------------------------------------------
+   No data is stored in this file. Everything you see is loaded
+   live from customers.json (next to this HTML file) — add, edit,
+   or remove customers there and this page will pick it up.
+--------------------------------------------------------------- */
+const DEFAULT_DATA = {"packages":[],"customers":[],"villages":[]};
+let appData = JSON.parse(JSON.stringify(DEFAULT_DATA));
+
+let ghConfig = { owner:'', repo:'', path:'customers.json', sankPath:'sank.json', kothPath:'koth.json', branch:'main', token:'' };
+let currentSha = null;       // sha for customers.json on GitHub
+let currentShaSank = null;   // sha for sank.json on GitHub
+let currentShaKoth = null;   // sha for koth.json on GitHub
+let dirty = false;
+let editingCustomerId = null;
+let editingPackageId = null;
+
+/* ---------------------------------------------------------------
+   customers.json file sync
+   - On load, tries to fetch customers.json sitting next to this
+     HTML file (works when both files are served over http/https,
+     e.g. via a local server or a web host).
+   - Polls every few seconds and silently re-renders if the file
+     on disk changed (skipped while you have unsaved edits open).
+   - If fetch can't reach the file (most browsers block fetch()
+     for local file:// pages), falls back to the "Load JSON file"
+     picker below, which reads any customers.json you choose with
+     no server needed.
+--------------------------------------------------------------- */
+const JSON_FILE_NAME = 'customers.json';
+const SANK_FILE_NAME = 'sank.json';
+const SANK_VILLAGE_ID = 'sank'; // villageId used for Sankarapuram in sank.json
+const KOTH_FILE_NAME = 'koth.json';
+const KOTH_VILLAGE_ID = 'koth'; // villageId used for Kothuru in koth.json
+let lastLoadedJsonText = JSON.stringify(DEFAULT_DATA);
+let lastLoadedSankText = null; // null = not loaded yet (sank.json is optional)
+let lastLoadedKothText = null; // null = not loaded yet (koth.json is optional)
+let fileSyncMode = 'pending'; // 'fetch' | 'manual' | 'pending'
+let filePollTimer = null;
+
+// Raw (untagged) data as last read from each file, kept so we can
+// re-export each file in its own original shape.
+let rawCustomersData = null;
+let rawSankData = null;
+let rawKothData = null;
+
+function isValidRegister(parsed){
+  return parsed && Array.isArray(parsed.customers) && Array.isArray(parsed.packages);
+  // villages array is optional but supported
+}
+
+/* ---------------------------------------------------------------
+   Merging customers.json + sank.json into one working appData.
+   Every customer/village gets a hidden _file tag so we know which
+   file it belongs to when saving, exporting, or syncing to GitHub.
+--------------------------------------------------------------- */
+function tagCustomers(list, file){
+  return (list || []).map(c => ({ ...c, _file: file }));
+}
+function tagVillages(list, file){
+  return (list || []).map(v => ({ ...v, _file: file }));
+}
+/* sank.json / koth.json use "id" (plain running number) + "box_no"
+   (the actual box/meter number) instead of the single "box_id" field
+   the rest of the app keys off of. Normalize here so cards, search,
+   edit and delete all work the same way regardless of source file. */
+function normalizeLegacyCustomer(c){
+  const boxId = (c.box_no && String(c.box_no).trim()) ? c.box_no : c.id;
+  return { ...c, box_id: boxId };
+}
+const normalizeSankCustomer = normalizeLegacyCustomer; // kept for backwards compatibility
+function mergeRegisters(customersData, sankData, kothData){
+  const base = customersData || DEFAULT_DATA;
+  const sank = sankData || { packages: [], villages: [], customers: [] };
+  const koth = kothData || { packages: [], villages: [], customers: [] };
+
+  // Packages: merge by id, customers.json's version wins on conflict.
+  const pkgMap = new Map();
+  (base.packages || []).forEach(p => pkgMap.set(p.id, p));
+  (sank.packages || []).forEach(p => { if (!pkgMap.has(p.id)) pkgMap.set(p.id, p); });
+  (koth.packages || []).forEach(p => { if (!pkgMap.has(p.id)) pkgMap.set(p.id, p); });
+
+  // Villages: merge by villageId, tag each with its source file.
+  const villageMap = new Map();
+  tagVillages(base.villages, JSON_FILE_NAME).forEach(v => villageMap.set(v.villageId, v));
+  tagVillages(sank.villages, SANK_FILE_NAME).forEach(v => { if (!villageMap.has(v.villageId)) villageMap.set(v.villageId, v); });
+  tagVillages(koth.villages, KOTH_FILE_NAME).forEach(v => { if (!villageMap.has(v.villageId)) villageMap.set(v.villageId, v); });
+
+  const customers = [
+    ...tagCustomers(base.customers, JSON_FILE_NAME),
+    ...tagCustomers((sank.customers || []).map(normalizeLegacyCustomer), SANK_FILE_NAME),
+    ...tagCustomers((koth.customers || []).map(normalizeLegacyCustomer), KOTH_FILE_NAME)
+  ];
+
+  return {
+    packages: [...pkgMap.values()],
+    villages: [...villageMap.values()],
+    customers
+  };
+}
+function stripFileTag(obj){
+  const { _file, ...rest } = obj;
+  return rest;
+}
+function stripLegacyNormalization(obj){
+  const { _file, box_id, ...rest } = obj;
+  return rest;
+}
+const stripSankNormalization = stripLegacyNormalization; // kept for backwards compatibility
+/* Rebuild the three source-file objects (in their original shape)
+   from the current merged appData — used for export & GitHub save. */
+function splitAppDataByFile(){
+  const custCustomers = appData.customers.filter(c => c._file !== SANK_FILE_NAME && c._file !== KOTH_FILE_NAME).map(stripFileTag);
+  const sankCustomers  = appData.customers.filter(c => c._file === SANK_FILE_NAME).map(stripLegacyNormalization);
+  const kothCustomers  = appData.customers.filter(c => c._file === KOTH_FILE_NAME).map(stripLegacyNormalization);
+  const custVillages = appData.villages.filter(v => v._file !== SANK_FILE_NAME && v._file !== KOTH_FILE_NAME).map(stripFileTag);
+  const sankVillages  = appData.villages.filter(v => v._file === SANK_FILE_NAME).map(stripFileTag);
+  const kothVillages  = appData.villages.filter(v => v._file === KOTH_FILE_NAME).map(stripFileTag);
+  const packages = appData.packages.map(p => ({ ...p }));
+
+  const customersJson = { packages, villages: custVillages, customers: custCustomers };
+  const sankJson = { packages, villages: sankVillages, customers: sankCustomers };
+  const kothJson = { packages, villages: kothVillages, customers: kothCustomers };
+  return { customersJson, sankJson, kothJson };
+}
+
+function setFileSyncStatus(text, kind){
+  const pill = document.getElementById('fileSyncStatus');
+  if (!pill) return;
+  pill.textContent = text;
+  pill.classList.remove('connected','dirty');
+  if (kind === 'ok') pill.classList.add('connected');
+  if (kind === 'warn') pill.classList.add('dirty');
+}
+
+async function fetchJsonFile(fileName){
+  const res = await fetch(fileName + '?t=' + Date.now(), { cache: 'no-store' });
+  if (!res.ok) throw new Error('HTTP ' + res.status);
+  const text = await res.text();
+  const parsed = JSON.parse(text);
+  if (!isValidRegister(parsed)) throw new Error(`${fileName} is missing "customers"/"packages" arrays`);
+  return { text, parsed };
+}
+
+async function fetchCustomersJson(silent){
+  const custResult = await fetchJsonFile(JSON_FILE_NAME).catch(err => ({ error: err }));
+  const sankResult = await fetchJsonFile(SANK_FILE_NAME).catch(err => ({ error: err }));
+  const kothResult = await fetchJsonFile(KOTH_FILE_NAME).catch(err => ({ error: err }));
+
+  if (custResult.error && sankResult.error && kothResult.error){
+    if (!silent){
+      setFileSyncStatus(`Couldn't auto-load ${JSON_FILE_NAME}, ${SANK_FILE_NAME} or ${KOTH_FILE_NAME} (${custResult.error.message}). Use the "📂 Load…" buttons instead.`, 'warn');
+    }
+    return false;
+  }
+
+  const custChanged = !custResult.error && custResult.text !== lastLoadedJsonText;
+  const sankChanged = !sankResult.error && sankResult.text !== lastLoadedSankText;
+  const kothChanged = !kothResult.error && kothResult.text !== lastLoadedKothText;
+
+  if (!custChanged && !sankChanged && !kothChanged){
+    if (!silent) setFileSyncStatus(`Synced with ${JSON_FILE_NAME}${sankResult.error ? '' : ' + ' + SANK_FILE_NAME}${kothResult.error ? '' : ' + ' + KOTH_FILE_NAME}`, 'ok');
+    return true; // nothing changed
+  }
+  if (dirty){
+    setFileSyncStatus(`Files changed on disk — click ↻ Reload to refresh (you have unsaved edits)`, 'warn');
+    return true;
+  }
+
+  if (!custResult.error){ rawCustomersData = custResult.parsed; lastLoadedJsonText = custResult.text; }
+  if (!sankResult.error){ rawSankData = sankResult.parsed; lastLoadedSankText = sankResult.text; }
+  if (!kothResult.error){ rawKothData = kothResult.parsed; lastLoadedKothText = kothResult.text; }
+
+  appData = mergeRegisters(rawCustomersData, rawSankData, rawKothData);
+  fileSyncMode = 'fetch';
+  render();
+  const missing = [];
+  if (sankResult.error) missing.push(SANK_FILE_NAME);
+  if (kothResult.error) missing.push(KOTH_FILE_NAME);
+  const note = missing.length ? ` (${missing.join(', ')} not found — that village won't show until it's loaded)` : '';
+  setFileSyncStatus(`Synced with ${JSON_FILE_NAME} + ${SANK_FILE_NAME} + ${KOTH_FILE_NAME}${note} · ${new Date().toLocaleTimeString()}`, missing.length ? 'warn' : 'ok');
+  return true;
+}
+
+function startFilePolling(){
+  if (filePollTimer) clearInterval(filePollTimer);
+  filePollTimer = setInterval(() => fetchCustomersJson(true), 4000);
+}
+
+async function initJsonFileSync(){
+  const ok = await fetchCustomersJson(false);
+  if (ok){
+    startFilePolling();
+  } else {
+    fileSyncMode = 'manual';
+    setFileSyncStatus(`Using built-in data — pick your ${JSON_FILE_NAME} / ${SANK_FILE_NAME} / ${KOTH_FILE_NAME} to load them`, 'warn');
+  }
+}
+
+function loadJsonFromFile(file, target){
+  const reader = new FileReader();
+  reader.onload = () => {
+    try {
+      const text = String(reader.result);
+      const parsed = JSON.parse(text);
+      if (!isValidRegister(parsed)) throw new Error('Missing "customers"/"packages" arrays');
+      if (target === 'sank'){
+        rawSankData = parsed;
+        lastLoadedSankText = text;
+      } else if (target === 'koth'){
+        rawKothData = parsed;
+        lastLoadedKothText = text;
+      } else {
+        rawCustomersData = parsed;
+        lastLoadedJsonText = text;
+      }
+      appData = mergeRegisters(rawCustomersData, rawSankData, rawKothData);
+      dirty = false;
+      fileSyncMode = 'manual';
+      if (filePollTimer) clearInterval(filePollTimer);
+      render();
+      updateSyncPill();
+      setFileSyncStatus(`Loaded ${file.name} · ${new Date().toLocaleTimeString()}`, 'ok');
+    } catch(err){
+      setFileSyncStatus(`Couldn't read that file: ${err.message}`, 'warn');
+    }
+  };
+  reader.onerror = () => setFileSyncStatus('Could not read the selected file.', 'warn');
+  reader.readAsText(file, 'utf-8');
+}
+
+const VILLAGE_PALETTE = [
+  {bg:'#DCEDE9', fg:'#1E4A45'},
+  {bg:'#FBEBD4', fg:'#9A5B14'},
+  {bg:'#F6E1DA', fg:'#9C4A33'},
+  {bg:'#E3EFE2', fg:'#3F6B4C'},
+  {bg:'#E3E8EC', fg:'#45565E'},
+];
+let villageColorMap = {};
+let activeVillageFilter = ''; // '' means All
+
+/* ---------------------------------------------------------------
+   Helpers
+--------------------------------------------------------------- */
+function escapeHtml(str){
+  return String(str).replace(/[&<>"']/g, m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+}
+function formatINR(n){
+  return '₹' + Number(n || 0).toLocaleString('en-IN');
+}
+function getUniqueVillages(){
+  // Return villages array sorted by English name; fall back to deriving from customers if no villages array
+  if (appData.villages && appData.villages.length){
+    return [...appData.villages].sort((a,b)=>a.village_en.localeCompare(b.village_en));
+  }
+  // Legacy fallback: unique villageId strings from customers
+  return [...new Set(appData.customers.map(c=>c.villageId).filter(Boolean))].sort()
+    .map(id=>({ villageId: id, village_en: id, village_te: id }));
+}
+function getVillage(villageId){
+  if (!appData.villages) return null;
+  return appData.villages.find(v=>v.villageId===villageId) || null;
+}
+function getVillageName(villageId){
+  const v = getVillage(villageId);
+  if (!v) return villageId || '—';
+  return teluguMode ? (v.village_te || v.village_en) : v.village_en;
+}
+function getPackage(id){
+  return appData.packages.find(p=>p.id===id);
+}
+function buildVillageColors(){
+  villageColorMap = {};
+  getUniqueVillages().forEach((v,i)=>{
+    const key = v.villageId || v;
+    villageColorMap[key] = VILLAGE_PALETTE[i % VILLAGE_PALETTE.length];
+  });
+}
+function utf8ToB64(str){ return btoa(unescape(encodeURIComponent(str))); }
+function b64ToUtf8(str){ return decodeURIComponent(escape(atob(str))); }
+
+/* ---------------------------------------------------------------
+   Rendering
+--------------------------------------------------------------- */
+function render(){
+  buildVillageColors();
+  populateFilterOptions();
+  renderVillageFilter();
+  renderCards();
+  updateStats();
+}
+
+// Village filter colors — vivid, distinct
+const VF_COLORS = [
+  { bg:'#1E4A45', fg:'#ffffff' }, // teal
+  { bg:'#C1543A', fg:'#ffffff' }, // terracotta
+  { bg:'#5B6EC1', fg:'#ffffff' }, // indigo
+  { bg:'#7A9E3B', fg:'#ffffff' }, // green
+  { bg:'#9B4FA5', fg:'#ffffff' }, // purple
+  { bg:'#D4832A', fg:'#ffffff' }, // amber
+];
+
+function renderVillageFilter(){
+  const strip = document.getElementById('villageFilterStrip');
+  if (!strip) return;
+  const villages = getUniqueVillages();
+
+  // "All" button
+  const allCount = appData.customers.filter(c => c.name).length;
+  const allActive = activeVillageFilter === '';
+  let html = `<div class="vf-btn ${allActive ? 'vf-active' : 'vf-inactive'}"
+    style="background:${allActive ? '#2A2825' : '#E4DECF'};color:${allActive ? '#fff' : '#2A2825'};border-color:${allActive ? '#2A2825' : '#E4DECF'};"
+    onclick="setVillageFilter('')">
+    All <span class="vf-count">${allCount}</span>
+  </div>`;
+
+  villages.forEach((v, i) => {
+    const col = VF_COLORS[i % VF_COLORS.length];
+    const count = appData.customers.filter(c => c.villageId === v.villageId && c.name).length;
+    const label = teluguMode ? (v.village_te || v.village_en) : v.village_en;
+    const isActive = activeVillageFilter === v.villageId;
+    html += `<div class="vf-btn ${isActive ? 'vf-active' : 'vf-inactive'}"
+      style="background:${col.bg};color:${col.fg};border-color:${col.bg};"
+      data-village-id="${escapeHtml(v.villageId)}"
+      onclick="setVillageFilter('${escapeHtml(v.villageId)}')">
+      ${escapeHtml(label)} <span class="vf-count">${count}</span>
+    </div>`;
+  });
+
+  // Replace everything after the label span
+  const label = strip.querySelector('.vf-label');
+  strip.innerHTML = '';
+  if (label) strip.appendChild(label);
+  else strip.insertAdjacentHTML('afterbegin', '<span class="vf-label">Village</span>');
+  strip.insertAdjacentHTML('beforeend', html);
+
+  // "Bookmark" behavior: picking a specific village collapses the
+  // header/dashboard/toolbar out of the way so the cards take over
+  // the screen, right under the (sticky) village strip. Picking
+  // "All" again brings the top section back.
+  const collapsibleTop = document.getElementById('collapsibleTop');
+  if (collapsibleTop){
+    collapsibleTop.classList.toggle('collapsed', activeVillageFilter !== '');
+  }
+}
+
+function setVillageFilter(villageId){
+  activeVillageFilter = villageId;
+  // Keep drawer select in sync
+  const sel = document.getElementById('villageFilter');
+  if (sel) {
+    sel.value = villageId;
+    // Update filter badge count
+    const badge = document.getElementById('filterBtnBadge');
+    if (badge) {
+      const searchEl = document.getElementById('searchInput');
+      let n = 0;
+      if (searchEl && searchEl.value.trim()) n++;
+      ['villageFilter','packageFilter','statusFilter'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el && el.value) n++;
+      });
+      badge.textContent = n;
+      badge.classList.toggle('show', n > 0);
+    }
+  }
+  renderVillageFilter();
+  renderCards();
+}
+
+function populateFilterOptions(){
+  const villageFilter = document.getElementById('villageFilter');
+  const packageFilter = document.getElementById('packageFilter');
+  const keepVillage = villageFilter.value;
+  const keepPackage = packageFilter.value;
+
+  villageFilter.innerHTML = '<option value="">All villages</option>' +
+    getUniqueVillages().map(v=>`<option value="${escapeHtml(v.villageId)}">${escapeHtml(teluguMode ? (v.village_te||v.village_en) : v.village_en)}</option>`).join('');
+  packageFilter.innerHTML = '<option value="">All packages</option>' +
+    appData.packages.map(p=>`<option value="${p.id}">${escapeHtml(p.name)}</option>`).join('');
+
+  villageFilter.value = keepVillage;
+  packageFilter.value = keepPackage;
+}
+
+function getFilteredCustomers(){
+  const search = document.getElementById('searchInput').value.trim().toLowerCase();
+  const village = activeVillageFilter !== '' ? activeVillageFilter : document.getElementById('villageFilter').value;
+  const pkg = document.getElementById('packageFilter').value;
+  const status = document.getElementById('statusFilter').value;
+  return appData.customers.filter(c=>{
+    if (search && !(
+      c.name.toLowerCase().includes(search) ||
+      c.phone.includes(search) ||
+      c.box_id.toLowerCase().includes(search)
+    )) return false;
+    if (village && c.villageId !== village) return false;
+    if (pkg && c.packageId !== pkg) return false;
+    if (status && c.status !== status) return false;
+    return true;
+  });
+}
+
+function renderCards(){
+  const grid = document.getElementById('cardsGrid');
+  const empty = document.getElementById('emptyState');
+  const list = getFilteredCustomers();
+
+  if (list.length === 0){
+    grid.innerHTML = '';
+    empty.textContent = appData.customers.length === 0
+      ? `No customers loaded yet — put customers.json next to this HTML file and click "↻ Reload", or use "📂 Load JSON file" to pick it manually.`
+      : 'No connections match your filters.';
+    empty.classList.remove('hidden');
+    return;
+  }
+  empty.classList.add('hidden');
+
+  grid.innerHTML = list.map(c=>{
+    const pkg = getPackage(c.packageId);
+    const vc = villageColorMap[c.villageId] || VILLAGE_PALETTE[0];
+    const isActive = c.status === 'active';
+    const price = pkg ? formatINR(pkg.price) : '—';
+    const pkgLabel = pkg ? `${escapeHtml(pkg.name)}${pkg.speed ? ' · ' + escapeHtml(pkg.speed) : ''}` : '—';
+
+    return `<div class="customer-card" id="card-${c.box_id}">
+      <div class="card-face" style="cursor:default;">
+        <div class="card-avatar-wrap ${isActive ? 'active' : 'inactive'}">
+          <div class="card-avatar" style="background:${vc.bg};color:${vc.fg}">${escapeHtml(c.id !== undefined && c.id !== null && c.id !== '' ? c.id : c.box_id)}</div>
+        </div>
+        <div class="card-main">
+          <div class="card-name">${escapeHtml(getDisplayName(c))}</div>
+        </div>
+        <button class="card-view-btn" data-box-id="${escapeHtml(c.box_id)}" title="View details">View details</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+/* ---------------------------------------------------------------
+   Customer details — opens in a separate browser window instead
+   of an inline dropdown/drawer.
+--------------------------------------------------------------- */
+/* ---------------------------------------------------------------
+   Customer details — shown as an in-page modal (same tab), with
+   its own close button, instead of a separate popup window/tab.
+--------------------------------------------------------------- */
+function openCustomerDetails(id){
+  const c = appData.customers.find(x => String(x.box_id) === String(id));
+  if (!c) return;
+  const pkg = getPackage(c.packageId);
+  const isActive = c.status === 'active';
+
+  document.getElementById('detailsName').textContent = getDisplayName(c);
+
+  const statusBadge = document.getElementById('detailsStatus');
+  statusBadge.textContent = isActive ? 'Active' : 'Inactive';
+  statusBadge.className = 'status-badge ' + (isActive ? 'active' : 'inactive');
+
+  document.getElementById('detailsRows').innerHTML = `
+    <div class="detail-row">
+      <span class="detail-label">Box</span>
+      <span class="detail-value mono">
+        <span id="detailIdCopy" onclick="copyDetailId('${escapeHtml(c.box_id)}')" title="Click to copy Box No" style="
+          display:inline-flex;align-items:center;gap:6px;
+          cursor:pointer;padding:2px 7px;margin:-2px -7px;
+          border-radius:5px;transition:background .15s;
+        " onmouseover="this.style.background='var(--bg)'" onmouseout="this.style.background='transparent'">
+          ${escapeHtml(c.box_id)}
+          <span id="detailIdCopyIcon" style="display:none;align-items:center;color:var(--success);">
+            <svg width="13" height="13" viewBox="0 0 13 13" fill="none" xmlns="http://www.w3.org/2000/svg"><polyline points="1.5,7 5,10.5 11.5,3" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </span>
+        </span>
+      </span>
+    </div>
+    <div class="detail-row">
+      <span class="detail-label">Phone</span>
+      <span class="detail-value">
+        <a href="tel:${escapeHtml(c.phone)}" class="phone-link" title="Tap to call">
+          <svg width="13" height="13" viewBox="0 0 13 13" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M11.5 9.2l-1.8-1.8a1 1 0 0 0-1.4 0l-.7.7a8.2 8.2 0 0 1-2.7-2.7l.7-.7a1 1 0 0 0 0-1.4L3.8 1.5a1 1 0 0 0-1.4 0L1.7 2.2C1 3 1.2 4.7 3.5 7s4 2.5 4.8 1.8l.7-.7a1 1 0 0 1 1.4 0l1.1 1.1a1 1 0 0 1 0 1.4l-.3.3c-.5.5-1.5.4-2.7-.1" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
+          ${escapeHtml(c.phone)}
+        </a>
+      </span>
+    </div>
+    <div class="detail-row"><span class="detail-label">Village</span><span class="detail-value">${escapeHtml(getVillageName(c.villageId))}</span></div>
+    <div class="detail-row"><span class="detail-label">Package</span><span class="detail-value">${pkg ? escapeHtml(pkg.name) : '—'}</span></div>
+    <div class="detail-row"><span class="detail-label">Price</span><span class="detail-value">${pkg ? escapeHtml(formatINR(pkg.price)) : '—'}</span></div>
+    <div class="detail-row"><span class="detail-label">Balance</span><span class="detail-value">${escapeHtml(formatINR(c.balance || 0))}</span></div>
+  `;
+
+  document.getElementById('detailsEditBtn').onclick = ()=>{ closeCustomerDetails(); openCustomerModal(c.box_id); };
+  document.getElementById('detailsDeleteBtn').onclick = ()=>{ closeCustomerDetails(); deleteCustomer(c.box_id); };
+
+  document.getElementById('customerDetailsModal').classList.remove('hidden');
+}
+
+function closeCustomerDetails(){
+  document.getElementById('customerDetailsModal').classList.add('hidden');
+}
+
+function updateStats(){
+  const total = appData.customers.length;
+  const active = appData.customers.filter(c=>c.status==='active').length;
+  const inactive = total - active;
+  const villages = getUniqueVillages().length;
+  const revenue = appData.customers
+    .filter(c=>c.status==='active')
+    .reduce((sum,c)=>{
+      const pkg = getPackage(c.packageId);
+      return sum + (pkg ? pkg.price : 0);
+    }, 0);
+
+  document.getElementById('statTotal').textContent = total;
+  document.getElementById('statActive').textContent = active;
+  document.getElementById('statInactive').textContent = inactive;
+  document.getElementById('statVillages').textContent = villages;
+  document.getElementById('statRevenue').textContent = formatINR(revenue);
+}
+
+/* ---------------------------------------------------------------
+   Telugu toggle
+--------------------------------------------------------------- */
+let teluguMode = true; // default: Telugu active
+
+function setLang(lang){
+  const enBtn = document.getElementById('langEnBtn');
+  const teBtn = document.getElementById('langTeBtn');
+  const wasTelugu = teluguMode;
+  teluguMode = (lang === 'te');
+
+  enBtn.classList.toggle('lang-active', !teluguMode);
+  teBtn.classList.toggle('lang-active',  teluguMode);
+
+  if (teluguMode && !wasTelugu){
+    // Entering Telugu mode — ensure every customer has a telugu_name
+    let added = false;
+    appData.customers.forEach(c=>{
+      if (!c.telugu_name){ c.telugu_name = 'అ'; added = true; }
+    });
+    if (added) markDirty();
+  }
+  render();
+}
+
+function getDisplayName(c){
+  return teluguMode && c.telugu_name ? c.telugu_name : c.name;
+}
+
+function getDisplayVillage(c){
+  return getVillageName(c.villageId);
+}
+
+/* ---------------------------------------------------------------
+   Dirty / sync indicator
+--------------------------------------------------------------- */
+function markDirty(){
+  dirty = true;
+  updateSyncPill();
+}
+function updateSyncPill(){
+  const pill = document.getElementById('syncStatus');
+  pill.classList.remove('connected','dirty');
+  if (ghConfig.owner && ghConfig.repo){
+    if (dirty){
+      pill.textContent = `${ghConfig.owner}/${ghConfig.repo} — unsaved changes`;
+      pill.classList.add('dirty');
+    } else {
+      pill.textContent = `${ghConfig.owner}/${ghConfig.repo} — synced`;
+      pill.classList.add('connected');
+    }
+  } else {
+    pill.textContent = 'Not connected to GitHub';
+  }
+}
+
+/* ---------------------------------------------------------------
+   Customer CRUD
+--------------------------------------------------------------- */
+function toggleStatus(id){
+  const c = appData.customers.find(c=>String(c.box_id)===String(id));
+  if (!c) return;
+  c.status = c.status === 'active' ? 'inactive' : 'active';
+  render();
+  markDirty();
+}
+
+function generateCustomerId(){
+  const nums = appData.customers
+    .filter(c => c._file !== SANK_FILE_NAME && c._file !== KOTH_FILE_NAME)
+    .map(c => parseInt(String(c.box_id).replace(/\D/g,''), 10))
+    .filter(n => !isNaN(n));
+  const next = (nums.length ? Math.max(...nums) : 0) + 1;
+  return 'C' + String(next).padStart(4,'0');
+}
+function generateSankId(){
+  // sank.json uses plain incrementing integers as box_ids ("1", "2", …)
+  const nums = appData.customers
+    .filter(c => c._file === SANK_FILE_NAME)
+    .map(c => parseInt(String(c.box_id), 10))
+    .filter(n => !isNaN(n));
+  const next = (nums.length ? Math.max(...nums) : 0) + 1;
+  return String(next);
+}
+function generateKothId(){
+  // koth.json uses plain incrementing integers as box_ids ("1", "2", …), same as sank.json
+  const nums = appData.customers
+    .filter(c => c._file === KOTH_FILE_NAME)
+    .map(c => parseInt(String(c.box_id), 10))
+    .filter(n => !isNaN(n));
+  const next = (nums.length ? Math.max(...nums) : 0) + 1;
+  return String(next);
+}
+function fileForVillage(villageId){
+  if (villageId === SANK_VILLAGE_ID) return SANK_FILE_NAME;
+  if (villageId === KOTH_VILLAGE_ID) return KOTH_FILE_NAME;
+  return JSON_FILE_NAME;
+}
+
+function openCustomerModal(id=null){
+  editingCustomerId = id;
+  const title = document.getElementById('customerModalTitle');
+  const pkgSelect = document.getElementById('custPackage');
+  const villageSelect = document.getElementById('custVillage');
+
+  pkgSelect.innerHTML = appData.packages
+    .map(p=>`<option value="${p.id}">${escapeHtml(p.name)}${p.speed ? ' — ' + escapeHtml(p.speed) : ''} (${formatINR(p.price)})</option>`)
+    .join('');
+
+  villageSelect.innerHTML = '<option value="">— Select village —</option>' +
+    getUniqueVillages().map(v=>`<option value="${escapeHtml(v.villageId)}">${escapeHtml(v.village_en)}${v.village_te ? ' / ' + escapeHtml(v.village_te) : ''}</option>`).join('');
+
+  if (id){
+    const c = appData.customers.find(c=>String(c.box_id)===String(id));
+    title.textContent = `Edit customer — ${c.box_id}`;
+    document.getElementById('custName').value = c.name;
+    document.getElementById('custPhone').value = c.phone;
+    document.getElementById('custVillage').value = c.villageId || '';
+    document.getElementById('custPackage').value = c.packageId;
+    document.getElementById('custStatus').value = c.status;
+    document.getElementById('custJoin').value = c.joinDate || '';
+    document.getElementById('custExpiry').value = c.expiryDate || '';
+    document.getElementById('custAddress').value = c.address || '';
+  } else {
+    title.textContent = 'Add customer';
+    document.getElementById('customerForm').reset();
+    const today = new Date();
+    const nextYear = new Date(today);
+    nextYear.setFullYear(today.getFullYear() + 1);
+    document.getElementById('custJoin').value = today.toISOString().slice(0,10);
+    document.getElementById('custExpiry').value = nextYear.toISOString().slice(0,10);
+    document.getElementById('custStatus').value = 'active';
+    if (appData.packages.length) document.getElementById('custPackage').value = appData.packages[0].id;
+  }
+  openDrawer('customerDrawer');
+}
+
+function closeCustomerModal(){
+  closeDrawer('customerDrawer');
+  editingCustomerId = null;
+}
+
+function handleCustomerSubmit(e){
+  e.preventDefault();
+  const data = {
+    name: document.getElementById('custName').value.trim(),
+    phone: document.getElementById('custPhone').value.trim(),
+    villageId: document.getElementById('custVillage').value.trim(),
+    packageId: document.getElementById('custPackage').value,
+    status: document.getElementById('custStatus').value,
+    joinDate: document.getElementById('custJoin').value,
+    expiryDate: document.getElementById('custExpiry').value,
+    address: document.getElementById('custAddress').value.trim(),
+  };
+
+  const targetFile = fileForVillage(data.villageId);
+
+  if (editingCustomerId){
+    const c = appData.customers.find(c=>String(c.box_id)===String(editingCustomerId));
+    Object.assign(c, data);
+    c._file = targetFile; // move between customers.json / sank.json if village changed
+  } else {
+    data.box_id = targetFile === SANK_FILE_NAME ? generateSankId() : targetFile === KOTH_FILE_NAME ? generateKothId() : generateCustomerId();
+    data._file = targetFile;
+    appData.customers.push(data);
+  }
+
+  closeCustomerModal();
+  render();
+  markDirty();
+}
+
+function deleteCustomer(id){
+  const c = appData.customers.find(c=>String(c.box_id)===String(id));
+  if (!c) return;
+  if (!confirm(`Remove ${c.name} (${c.box_id}) from the register? This cannot be undone here.`)) return;
+  appData.customers = appData.customers.filter(c=>String(c.box_id)!==String(id));
+  render();
+  markDirty();
+}
+
+/* ---------------------------------------------------------------
+   Package CRUD
+--------------------------------------------------------------- */
+function openPackagesModal(){
+  editingPackageId = null;
+  document.getElementById('pkgName').value = '';
+  document.getElementById('pkgSpeed').value = '';
+  document.getElementById('pkgPrice').value = '';
+  document.getElementById('addPackageBtn').textContent = '+ Add package';
+  renderPackagesList();
+  openDrawer('packagesDrawer');
+}
+
+function closePackagesModal(){
+  closeDrawer('packagesDrawer');
+  render();
+}
+
+function renderPackagesList(){
+  const list = document.getElementById('packagesList');
+  if (appData.packages.length === 0){
+    list.innerHTML = '<p class="hint">No packages yet — add one below.</p>';
+    return;
+  }
+  list.innerHTML = appData.packages.map(p=>{
+    const inUse = appData.customers.filter(c=>c.packageId===p.id).length;
+    return `<div class="pkg-row">
+      <div>
+        <strong>${escapeHtml(p.name)}</strong>
+        <span class="hint" style="margin:0"> — ${escapeHtml(p.speed)} • ${formatINR(p.price)}/mo • ${inUse} customer${inUse===1?'':'s'}</span>
+      </div>
+      <div>
+        <button class="icon-btn" onclick="editPackage('${p.id}')" title="Edit">✎</button>
+        <button class="icon-btn" onclick="deletePackage('${p.id}')" title="Delete">🗑</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function editPackage(id){
+  const p = appData.packages.find(p=>p.id===id);
+  if (!p) return;
+  editingPackageId = id;
+  document.getElementById('pkgName').value = p.name;
+  document.getElementById('pkgSpeed').value = p.speed;
+  document.getElementById('pkgPrice').value = p.price;
+  document.getElementById('addPackageBtn').textContent = 'Save package';
+}
+
+function deletePackage(id){
+  const inUse = appData.customers.some(c=>c.packageId===id);
+  if (inUse && !confirm('Some customers are on this package. Delete it anyway? Their row will show "—" for package until reassigned.')) return;
+  appData.packages = appData.packages.filter(p=>p.id!==id);
+  renderPackagesList();
+  markDirty();
+}
+
+function handleAddPackage(){
+  const name = document.getElementById('pkgName').value.trim();
+  const speed = document.getElementById('pkgSpeed').value.trim();
+  const price = parseFloat(document.getElementById('pkgPrice').value);
+
+  if (!name || !speed || isNaN(price)){
+    alert('Please fill in name, speed and price.');
+    return;
+  }
+
+  if (editingPackageId){
+    const p = appData.packages.find(p=>p.id===editingPackageId);
+    Object.assign(p, { name, speed, price });
+    editingPackageId = null;
+    document.getElementById('addPackageBtn').textContent = '+ Add package';
+  } else {
+    appData.packages.push({ id: 'pkg' + Date.now(), name, speed, price });
+  }
+
+  document.getElementById('pkgName').value = '';
+  document.getElementById('pkgSpeed').value = '';
+  document.getElementById('pkgPrice').value = '';
+  renderPackagesList();
+  markDirty();
+}
+
+/* ---------------------------------------------------------------
+   GitHub sync
+--------------------------------------------------------------- */
+function restoreGhConfig(){
+  try {
+    const saved = sessionStorage.getItem('skjcn_gh_config');
+    if (saved){
+      const cfg = JSON.parse(saved);
+      Object.assign(ghConfig, cfg);
+    }
+  } catch(e){ /* storage unavailable — ignore */ }
+}
+
+function persistGhConfig(){
+  try {
+    const { token, ...rest } = ghConfig;
+    sessionStorage.setItem('skjcn_gh_config', JSON.stringify(rest));
+  } catch(e){ /* storage unavailable — ignore */ }
+}
+
+function openSettingsModal(){
+  closeDrawer('ghDrawer');
+  document.getElementById('ghOwner').value = ghConfig.owner;
+  document.getElementById('ghRepo').value = ghConfig.repo;
+  document.getElementById('ghPath').value = ghConfig.path;
+  document.getElementById('ghPathSank').value = ghConfig.sankPath;
+  document.getElementById('ghPathKoth').value = ghConfig.kothPath;
+  document.getElementById('ghBranch').value = ghConfig.branch;
+  document.getElementById('ghToken').value = ghConfig.token;
+  document.getElementById('settingsModal').classList.remove('hidden');
+}
+function closeSettingsModal(){
+  document.getElementById('settingsModal').classList.add('hidden');
+}
+
+function readGhFormToConfig(){
+  ghConfig.owner = document.getElementById('ghOwner').value.trim();
+  ghConfig.repo = document.getElementById('ghRepo').value.trim();
+  ghConfig.path = document.getElementById('ghPath').value.trim() || 'customers.json';
+  ghConfig.sankPath = document.getElementById('ghPathSank').value.trim() || 'sank.json';
+  ghConfig.kothPath = document.getElementById('ghPathKoth').value.trim() || 'koth.json';
+  ghConfig.branch = document.getElementById('ghBranch').value.trim() || 'main';
+  ghConfig.token = document.getElementById('ghToken').value.trim();
+}
+
+function ghLog(msg, isError=false){
+  const log = document.getElementById('ghLog');
+  const time = new Date().toLocaleTimeString();
+  log.textContent += `\n[${time}] ${msg}`;
+  log.scrollTop = log.scrollHeight;
+  log.classList.toggle('error', isError);
+}
+
+async function ghFetchFile(path){
+  const url = `https://api.github.com/repos/${ghConfig.owner}/${ghConfig.repo}/contents/${encodeURIComponent(path)}?ref=${encodeURIComponent(ghConfig.branch)}`;
+  const res = await fetch(url, {
+    headers: { Authorization: `token ${ghConfig.token}`, Accept: 'application/vnd.github+json' }
+  });
+  if (res.status === 404) return { sha: null, parsed: null };
+  if (!res.ok){
+    const errJson = await res.json().catch(()=>({}));
+    throw new Error(`${res.status} ${res.statusText}${errJson.message ? ' — ' + errJson.message : ''}`);
+  }
+  const json = await res.json();
+  const content = b64ToUtf8(json.content.replace(/\n/g,''));
+  const parsed = JSON.parse(content);
+  if (!Array.isArray(parsed.customers) || !Array.isArray(parsed.packages)){
+    throw new Error(`${path} does not look like a SKJCN register (expected "customers" and "packages" arrays).`);
+  }
+  return { sha: json.sha, parsed };
+}
+
+async function loadFromGitHub(){
+  readGhFormToConfig();
+  if (!ghConfig.owner || !ghConfig.repo || !ghConfig.token){
+    ghLog('Please fill in owner, repo and token first.', true);
+    return;
+  }
+  persistGhConfig();
+  ghLog(`Loading ${ghConfig.path} + ${ghConfig.sankPath} + ${ghConfig.kothPath} from ${ghConfig.owner}/${ghConfig.repo}@${ghConfig.branch}…`);
+  try {
+    const custResult = await ghFetchFile(ghConfig.path);
+    currentSha = custResult.sha;
+    if (!custResult.parsed) ghLog(`${ghConfig.path} not found in repo yet — it will be created the first time you save.`);
+
+    const sankResult = await ghFetchFile(ghConfig.sankPath);
+    currentShaSank = sankResult.sha;
+    if (!sankResult.parsed) ghLog(`${ghConfig.sankPath} not found in repo yet — it will be created the first time you save.`);
+
+    const kothResult = await ghFetchFile(ghConfig.kothPath);
+    currentShaKoth = kothResult.sha;
+    if (!kothResult.parsed) ghLog(`${ghConfig.kothPath} not found in repo yet — it will be created the first time you save.`);
+
+    rawCustomersData = custResult.parsed || DEFAULT_DATA;
+    rawSankData = sankResult.parsed || { packages: [], villages: [], customers: [] };
+    rawKothData = kothResult.parsed || { packages: [], villages: [], customers: [] };
+    appData = mergeRegisters(rawCustomersData, rawSankData, rawKothData);
+    dirty = false;
+    render();
+    updateSyncPill();
+    ghLog(`Loaded ${appData.customers.length} customers and ${appData.packages.length} packages total.`);
+  } catch(err){
+    ghLog('Load failed: ' + err.message, true);
+  }
+}
+
+async function ghPutFile(path, obj, sha){
+  const url = `https://api.github.com/repos/${ghConfig.owner}/${ghConfig.repo}/contents/${encodeURIComponent(path)}`;
+  const body = {
+    message: `Update ${path} — ${new Date().toISOString()}`,
+    content: utf8ToB64(JSON.stringify(obj, null, 2)),
+    branch: ghConfig.branch,
+  };
+  if (sha) body.sha = sha;
+
+  const res = await fetch(url, {
+    method: 'PUT',
+    headers: {
+      Authorization: `token ${ghConfig.token}`,
+      Accept: 'application/vnd.github+json',
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify(body)
+  });
+  if (!res.ok){
+    const errJson = await res.json().catch(()=>({}));
+    throw new Error(`${res.status} ${res.statusText}${errJson.message ? ' — ' + errJson.message : ''}`);
+  }
+  const json = await res.json();
+  return json.content.sha;
+}
+
+async function saveToGitHub(){
+  readGhFormToConfig();
+  if (!ghConfig.owner || !ghConfig.repo || !ghConfig.token){
+    ghLog('Please fill in owner, repo and token first.', true);
+    return;
+  }
+  persistGhConfig();
+  ghLog(`Saving to ${ghConfig.owner}/${ghConfig.repo} — ${ghConfig.path} & ${ghConfig.sankPath} & ${ghConfig.kothPath}…`);
+  try {
+    const { customersJson, sankJson, kothJson } = splitAppDataByFile();
+    currentSha = await ghPutFile(ghConfig.path, customersJson, currentSha);
+    ghLog(`Saved ${ghConfig.path} (${customersJson.customers.length} customers).`);
+    currentShaSank = await ghPutFile(ghConfig.sankPath, sankJson, currentShaSank);
+    ghLog(`Saved ${ghConfig.sankPath} (${sankJson.customers.length} customers).`);
+    currentShaKoth = await ghPutFile(ghConfig.kothPath, kothJson, currentShaKoth);
+    ghLog(`Saved ${ghConfig.kothPath} (${kothJson.customers.length} customers).`);
+    dirty = false;
+    updateSyncPill();
+    ghLog('All files saved successfully.');
+  } catch(err){
+    ghLog('Save failed: ' + err.message, true);
+  }
+}
+
+function downloadJson(obj, filename){
+  const blob = new Blob([JSON.stringify(obj, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+function exportJson(){
+  const { customersJson, sankJson, kothJson } = splitAppDataByFile();
+  downloadJson(customersJson, JSON_FILE_NAME);
+  // Stagger the downloads slightly — some browsers block simultaneous
+  // multi-file downloads triggered in the same tick.
+  setTimeout(() => downloadJson(sankJson, SANK_FILE_NAME), 300);
+  setTimeout(() => downloadJson(kothJson, KOTH_FILE_NAME), 600);
+}
+
+function copyPhone(phone){
+  navigator.clipboard.writeText(phone).then(()=>{
+    const toast = document.getElementById('copyToast');
+    toast.textContent = phone + ' copied!';
+    toast.classList.add('show');
+    clearTimeout(copyPhone._t);
+    copyPhone._t = setTimeout(()=>toast.classList.remove('show'), 2000);
+  }).catch(()=>{
+    const ta = document.createElement('textarea');
+    ta.value = phone;
+    ta.style.position='fixed';ta.style.opacity='0';
+    document.body.appendChild(ta);ta.select();
+    document.execCommand('copy');
+    document.body.removeChild(ta);
+    const toast = document.getElementById('copyToast');
+    toast.textContent = phone + ' copied!';
+    toast.classList.add('show');
+    clearTimeout(copyPhone._t);
+    copyPhone._t = setTimeout(()=>toast.classList.remove('show'), 2000);
+  });
+}
+
+function copyDetailId(id){
+  const doShow = () => {
+    const icon = document.getElementById('detailIdCopyIcon');
+    if (icon){ icon.style.display = 'inline-flex'; }
+    const toast = document.getElementById('copyToast');
+    toast.textContent = id + ' copied!';
+    toast.classList.add('show');
+    clearTimeout(copyDetailId._t);
+    copyDetailId._t = setTimeout(()=>{
+      toast.classList.remove('show');
+      const icon = document.getElementById('detailIdCopyIcon');
+      if (icon){ icon.style.display = 'none'; }
+    }, 2000);
+  };
+  navigator.clipboard.writeText(id).then(doShow).catch(()=>{
+    const ta = document.createElement('textarea');
+    ta.value = id;
+    ta.style.position='fixed';ta.style.opacity='0';
+    document.body.appendChild(ta);ta.select();
+    document.execCommand('copy');
+    document.body.removeChild(ta);
+    doShow();
+  });
+}
+
+/* ---------------------------------------------------------------
+   Wiring
+--------------------------------------------------------------- */
+function bindEvents(){
+  document.getElementById('addCustomerBtn').addEventListener('click', ()=>openCustomerModal());
+  document.getElementById('customerForm').addEventListener('submit', handleCustomerSubmit);
+
+  document.getElementById('managePackagesBtn').addEventListener('click', openPackagesModal);
+  document.getElementById('addPackageBtn').addEventListener('click', handleAddPackage);
+
+  document.getElementById('settingsBtn').addEventListener('click', openSettingsModal);
+  document.getElementById('closeSettingsBtn').addEventListener('click', closeSettingsModal);
+  document.getElementById('ghLoadBtn').addEventListener('click', loadFromGitHub);
+  document.getElementById('ghSaveBtn').addEventListener('click', saveToGitHub);
+
+  document.getElementById('closeDetailsBtn').addEventListener('click', closeCustomerDetails);
+
+  // View details buttons are rendered dynamically inside #cardsGrid, so we
+  // use event delegation on the grid instead of inline onclick handlers.
+  // This also avoids breaking when a box_id contains a quote or other
+  // special character (inline onclick="...('${box_id}')" would silently
+  // fail to fire in that case).
+  document.getElementById('cardsGrid').addEventListener('click', (e)=>{
+    const btn = e.target.closest('.card-view-btn');
+    if (!btn) return;
+    openCustomerDetails(btn.dataset.boxId);
+  });
+
+  document.getElementById('exportBtn').addEventListener('click', exportJson);
+
+  document.getElementById('reloadJsonBtn').addEventListener('click', ()=>fetchCustomersJson(false));
+  document.getElementById('loadJsonBtn').addEventListener('click', ()=>document.getElementById('jsonFileInput').click());
+  document.getElementById('jsonFileInput').addEventListener('change', (e)=>{
+    const file = e.target.files && e.target.files[0];
+    if (file) loadJsonFromFile(file, 'customers');
+    e.target.value = '';
+  });
+  document.getElementById('loadSankBtn').addEventListener('click', ()=>document.getElementById('sankFileInput').click());
+  document.getElementById('sankFileInput').addEventListener('change', (e)=>{
+    const file = e.target.files && e.target.files[0];
+    if (file) loadJsonFromFile(file, 'sank');
+    e.target.value = '';
+  });
+  document.getElementById('loadKothBtn').addEventListener('click', ()=>document.getElementById('kothFileInput').click());
+  document.getElementById('kothFileInput').addEventListener('change', (e)=>{
+    const file = e.target.files && e.target.files[0];
+    if (file) loadJsonFromFile(file, 'koth');
+    e.target.value = '';
+  });
+
+  document.querySelectorAll('.modal-overlay').forEach(ov=>{
+    ov.addEventListener('click', (e)=>{ if (e.target === ov) ov.classList.add('hidden'); });
+  });
+
+  // GitHub & Files drawer
+  document.getElementById('ghDrawerBtn').addEventListener('click', ()=>openDrawer('ghDrawer'));
+  document.getElementById('closeGhDrawerBtn').addEventListener('click', ()=>closeDrawer('ghDrawer'));
+}
+
+restoreGhConfig();
+updateSyncPill();
+render();
+bindEvents();
+initJsonFileSync();
+
+/* ── Unified drawer system ── */
+const _overlay = document.getElementById('drawerOverlay');
+let _activeDrawer = null;
+
+function openDrawer(id){
+  if (_activeDrawer) closeDrawer(_activeDrawer);
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.classList.add('open');
+  _overlay.classList.add('open');
+  _activeDrawer = id;
+}
+function closeDrawer(id){
+  const el = document.getElementById(id || _activeDrawer);
+  if (!el) return;
+  el.classList.remove('open');
+  _overlay.classList.remove('open');
+  _activeDrawer = null;
+}
+
+// Overlay click closes whatever is open
+_overlay.addEventListener('click', ()=> closeDrawer());
+// Escape closes
+document.addEventListener('keydown', e=>{ if(e.key==='Escape') closeDrawer(); });
+
+/* ── Filter drawer specific ── */
+(function(){
+  const filterBtn = document.getElementById('filterBtn');
+  const badge     = document.getElementById('filterBtnBadge');
+  const closeBtn  = document.getElementById('drawerClose');
+  const clearBtn  = document.getElementById('drawerClearBtn');
+  const doneBtn   = document.getElementById('drawerDoneBtn');
+  const searchEl  = document.getElementById('searchInput');
+  const filterIds = ['villageFilter','packageFilter','statusFilter'];
+
+  function updateBadge(){
+    let n = 0;
+    if(searchEl && searchEl.value.trim()) n++;
+    filterIds.forEach(id=>{ const el=document.getElementById(id); if(el && el.value) n++; });
+    badge.textContent = n;
+    badge.classList.toggle('show', n > 0);
+  }
+
+  filterBtn.addEventListener('click', ()=>{
+    openDrawer('filterDrawer');
+    setTimeout(()=>{ if(searchEl) searchEl.focus(); }, 60);
+  });
+  closeBtn.addEventListener('click', ()=> closeDrawer('filterDrawer'));
+  doneBtn.addEventListener('click',  ()=> closeDrawer('filterDrawer'));
+
+  if(searchEl) searchEl.addEventListener('input', ()=>{ updateBadge(); renderCards(); });
+  filterIds.forEach(id=>{
+    const el=document.getElementById(id);
+    if(el) el.addEventListener('change', ()=>{
+      if(id === 'villageFilter'){
+        activeVillageFilter = el.value;
+        renderVillageFilter();
+      }
+      updateBadge(); renderCards();
+    });
+  });
+
+  clearBtn.addEventListener('click', ()=>{
+    if(searchEl) searchEl.value='';
+    filterIds.forEach(id=>{ const el=document.getElementById(id); if(el) el.value=''; });
+    activeVillageFilter = '';
+    renderVillageFilter();
+    updateBadge(); renderCards();
+  });
+})();
+
+/* ── Dashboard toggle ── */
+(function(){
+  const btn     = document.getElementById('dashboardBtn');
+  const section = document.getElementById('dashboardSection');
+
+  btn.addEventListener('click', ()=>{
+    const isHidden = section.classList.contains('hidden');
+    section.classList.toggle('hidden', !isHidden);
+    btn.classList.toggle('active', isHidden);
+  });
+})();
+
+/* ── Customer drawer close btn ── */
+document.getElementById('cancelCustomerBtn').addEventListener('click', closeCustomerModal);
+
+/* ── Packages drawer close btn ── */
+document.getElementById('closePackagesBtn').addEventListener('click', closePackagesModal);
+</script>
+</body>
+</html>
