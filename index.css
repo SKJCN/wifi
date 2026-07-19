@@ -176,18 +176,6 @@
       transform: translateX(-50%) scaleX(1);
     }
 
-    .nav-login-btn {
-      background: linear-gradient(135deg, var(--accent), #d97706) !important;
-      color: var(--navy) !important;
-      font-weight: 700 !important;
-      border: none !important;
-      border-radius: 8px !important;
-    }
-
-    .nav-login-btn:hover { opacity: .9; }
-
-    .nav-login-btn::after { display: none !important; }
-
     .plan-card.featured .plan-header {
       background: linear-gradient(135deg, var(--navy) 0%, var(--blue) 100%);
     }
